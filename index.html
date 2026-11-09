@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Phiếu bài tập cuối tuần</title>
+<style>
+:root{--bg:#fffaf0;--card:#fff;--tx:#1f2a44;--mut:#667;--ln:#e3d9c4;--pri:#e8590c;--ok:#2b8a3e;--bad:#c92a2a;--in:#fff8e6;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media(prefers-color-scheme:dark){:root{--bg:#171a22;--card:#222735;--tx:#f1efe9;--mut:#aab;--ln:#3a4156;--pri:#ff9248;--ok:#69db7c;--bad:#ff8787;--in:#2d3346;color-scheme:dark}}
+body{margin:0;background:var(--bg);color:var(--tx);font:17px/1.5 "Segoe UI",system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:14px}
+h1{margin:8px 0;font-size:1.5rem;color:var(--pri)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card,dialog{background:var(--card);color:var(--tx);border:2px dashed var(--ln);border-radius:16px;padding:12px 14px;margin:12px 0}
+.card h2,dialog h2{margin:10px 0 6px;font-size:1.1rem}
+input,select,textarea{font:inherit;color:var(--tx);background:var(--in);border:2px solid var(--ln);border-radius:10px;padding:5px 8px}
+input[type=number]{width:4.5em;text-align:center}
+input.w,textarea{width:100%;box-sizing:border-box}
+textarea{min-height:200px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0}
+.who{display:flex;flex-wrap:wrap;gap:10px}.who label{flex:1 1 200px}
+button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:10px 18px;background:var(--pri);color:#fff;cursor:pointer}
+button.s{background:var(--mut);padding:6px 12px;font-size:.9rem}
+.msg{padding:10px 12px;border-radius:10px;margin:10px 0}
+.ok{background:rgba(43,138,62,.15);color:var(--ok)}.er{background:rgba(201,42,42,.12);color:var(--bad)}
+.hint{font-size:.9rem;color:var(--mut)}
+details{border-top:1px solid var(--ln);padding:6px 0}summary{cursor:pointer}
+.c{color:var(--ok)}.x{color:var(--bad)}.mk{margin-left:4px;font-weight:700}
+</style></head><body><main>
+<div class="top"><h1>📘 Phiếu bài tập cuối tuần</h1><button class="s" id="lg">🔐 Đăng nhập giáo viên</button></div>
+
+<div id="adm" hidden class="card"><h2>👩‍🏫 Đăng phiếu bài tập mới</h2>
+<input id="at" class="w" placeholder="Tên phiếu, ví dụ: Tuần 8">
+<p class="hint">File PDF đề bài (không bắt buộc):</p><input type="file" id="af" accept="application/pdf">
+<p class="hint">Phiếu đáp án, mỗi dòng một ý: <b>Nhãn | Đáp án | Lựa chọn</b> (các lựa chọn cách nhau bằng /). Dòng bắt đầu bằng # là tiêu đề. Nhiều đáp án đúng: ngăn cách bằng dấu ; . Bỏ trống đáp án = không chấm.</p>
+<textarea id="as" placeholder="# 1. Tính nhẩm&#10;8 + 6 = | 14&#10;11 − 8 = | 3&#10;Điền s / x: …ách vở | s | s/x"></textarea>
+<div class="row"><button id="ap">Đăng cho học sinh</button></div><div id="am"></div>
+<h2>📥 Bài đã nộp</h2><select id="af2"></select><div id="al" class="hint"></div></div>
+
+<div id="none" class="card" hidden>Chưa có phiếu bài tập nào. Em quay lại sau nhé!</div>
+<div id="work" hidden>
+<h2 id="wt"></h2>
+<div class="card"><div class="who">
+<label>Họ và tên<br><input id="name" class="w" autocomplete="off" placeholder="Nguyễn Văn A"></label>
+<label>Lớp<br><input id="cls" class="w" autocomplete="off" placeholder="2A"></label></div></div>
+<div id="pdf"></div><div id="form"></div><div id="msg"></div>
+<div style="text-align:center;margin:16px 0"><button id="send">Nộp bài cho cô/thầy ✉️</button></div>
+</div>
+
+<dialog id="dg"><h2>Đăng nhập giáo viên</h2>
+<div class="row"><input id="u" placeholder="Tên đăng nhập" autocomplete="username"></div>
+<div class="row"><input id="p" type="password" placeholder="Mật khẩu" autocomplete="current-password"></div>
+<div class="row"><button id="go">Đăng nhập</button><button class="s" id="cl">Đóng</button></div><div id="le" class="x"></div></dialog>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+// ===== CẤU HÌNH: lấy ở Supabase > Project Settings > API =====
+const SB_URL="https://nsvnmnklupdqagihxkpn.supabase.co",SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5zdm5tbmtsdXBkcWFnaWh4a3BuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyMjk4OTQsImV4cCI6MjEwOTgwNTg5NH0.diuLivsdlBseALweAKRpOTH5ylYWepB8hE-3LrUF-UU",DOM="phieubaitap.vn";
+// =============================================================
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let KEY={},LABEL={},ORDER=[],cur=null,AS=[],sent=false;
+
+// Đọc phiếu đáp án (văn bản) thành danh sách câu hỏi
+const parse=t=>{let n=0;const o=[];(t||"").split("\n").forEach(l=>{l=l.trim();if(!l)return;
+ if(l[0]==="#"){o.push({h:l.slice(1).trim()});return}
+ const [lb,key="",op=""]=l.split("|").map(s=>s.trim());
+ o.push({id:"q"+n++,lb,key,opts:op?op.split("/").map(s=>s.trim()):null})});return o};
+const nrm=t=>String(t).replace(/\s/g,"").replace(/[−–]/g,"-").toLowerCase();
+const ok1=(key,v)=>key.split(";").some(x=>nrm(x)===nrm(v||""));
+
+function build(qs){KEY={};LABEL={};let h="";
+ qs.forEach(q=>{if(q.h){h+=`<h2>${esc(q.h)}</h2>`;return}
+  LABEL[q.id]=q.lb;if(q.key)KEY[q.id]=q.key;
+  const f=q.opts?`<select data-k="${q.id}"><option value="">?</option>${q.opts.map(o=>`<option>${esc(o)}</option>`).join("")}</select>`
+   :`<input data-k="${q.id}" ${/^-?\d+$/.test(q.key)?'type="number" inputmode="numeric"':'class="w" style="flex:1"'}>`;
+  h+=`<div class="row">${esc(q.lb)} ${f}</div>`});
+ $("#form").innerHTML=`<div class="card">${h}</div>`;
+ ORDER=[...document.querySelectorAll("[data-k]")].map(e=>e.dataset.k)}
+
+// ----- Thu thập & chấm tự động (giữ nguyên logic cũ) -----
+const gradable=k=>KEY[k]!=null;
+const isOk=(k,v)=>ok1(KEY[k],v);
+const collect=()=>{const a={};document.querySelectorAll("[data-k]").forEach(e=>a[e.dataset.k]=e.value.trim());return a};
+const grade=a=>{let got=0,total=0;ORDER.forEach(k=>{if(!gradable(k))return;total++;if(isOk(k,a[k]))got++});
+ return{got,total,s10:total?Math.round(got/total*100)/10:0}};
+function mark(a){document.querySelectorAll(".mk").forEach(e=>e.remove());
+ ORDER.forEach(k=>{if(!gradable(k))return;const el=document.querySelector(`[data-k="${k}"]`),ok=isOk(k,a[k]);
+  el.style.borderColor=ok?"var(--ok)":"var(--bad)";
+  const m=document.createElement("span");m.className="mk "+(ok?"c":"x");m.textContent=ok?"✓":"✗ (đáp án: "+KEY[k].split(";")[0]+")";el.after(m)})}
+
+const show=(t,c)=>$("#msg").innerHTML=`<div class="msg ${c}">${t}</div>`;
+
+// ----- Hiển thị PDF -----
+async function showPdf(path){const box=$("#pdf");box.innerHTML="";if(!path)return;
+ const url=sb.storage.from("pdfs").getPublicUrl(path).data.publicUrl;
+ try{pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const d=await pdfjsLib.getDocument(url).promise;
+  for(let i=1;i<=d.numPages;i++){const p=await d.getPage(i),v=p.getViewport({scale:1.6}),c=document.createElement("canvas");
+   c.width=v.width;c.height=v.height;c.style.cssText="width:100%;height:auto;border:1px solid var(--ln);border-radius:8px;margin:6px 0";
+   box.append(c);await p.render({canvasContext:c.getContext("2d"),viewport:v}).promise}
+ }catch(e){box.innerHTML=`<p><a href="${url}" target="_blank">Mở đề bài (PDF)</a></p>`}}
+
+// ----- Học sinh: tải phiếu đang mở -----
+async function load(){
+ const {data}=await sb.from("assignments").select("*").eq("active",true).order("created_at",{ascending:false}).limit(1);
+ cur=data&&data[0];$("#none").hidden=!!cur;$("#work").hidden=!cur;if(!cur)return;
+ $("#wt").textContent=cur.title;build(parse(cur.sheet));showPdf(cur.pdf_path)}
+
+$("#send").onclick=async()=>{
+ const name=$("#name").value.trim(),cls=$("#cls").value.trim();
+ if(!name||!cls){show("Em nhớ điền Họ và tên và Lớp trước khi nộp nhé!","er");$("#name").focus();return}
+ if(sent&&!confirm("Em đã nộp rồi. Nộp lại lần nữa nhé?"))return;
+ const a=collect(),g=grade(a),blank=ORDER.filter(k=>!a[k]).length;
+ if(blank&&!confirm(`Em còn ${blank} ô chưa làm. Vẫn nộp bài chứ?`))return;
+ mark(a);
+ const res=g.total?`🎯 Điểm của em: <b>${g.s10}/10</b> (${g.got}/${g.total} ý đúng). Chỗ nào ✗ có ghi đáp án đúng để em xem lại.`:"";
+ const btn=$("#send");btn.disabled=true;btn.textContent="Đang nộp…";
+ const {error}=await sb.from("submissions").insert({assignment_id:cur.id,name,cls,got:g.got,total:g.total,score10:g.s10,
+  done:ORDER.length-blank,count:ORDER.length,labels:ORDER.map(k=>LABEL[k]),answers:ORDER.map(k=>a[k])});
+ if(error)show(`Chưa gửi được bài cho cô/thầy. Em kiểm tra mạng rồi bấm Nộp bài lại nhé.<br>${res}`,"er");
+ else{sent=true;show(`✅ Đã nộp bài, cảm ơn ${esc(name)}!<br>${res}`,"ok")}
+ btn.disabled=false;btn.textContent="Nộp bài cho cô/thầy ✉️"};
+
+// ----- Giáo viên: đăng nhập qua Supabase Auth -----
+$("#lg").onclick=async()=>{if($("#adm").hidden===false){await sb.auth.signOut();location.reload()}else $("#dg").showModal()};
+$("#cl").onclick=()=>$("#dg").close();
+$("#go").onclick=async()=>{
+ const {error}=await sb.auth.signInWithPassword({email:$("#u").value.trim().toLowerCase()+"@"+DOM,password:$("#p").value});
+ if(error){$("#le").textContent="Sai tên đăng nhập hoặc mật khẩu";return}
+ $("#p").value="";$("#dg").close();admin()};
+
+async function admin(){$("#adm").hidden=false;$("#work").hidden=true;$("#none").hidden=true;
+ $("#lg").textContent="Đăng xuất";loadList()}
+
+$("#ap").onclick=async()=>{const m=$("#am"),title=$("#at").value.trim(),f=$("#af").files[0],sheet=$("#as").value.trim();
+ if(!title||(!f&&!sheet)){m.textContent="Nhập tên phiếu và ít nhất file PDF hoặc phiếu đáp án.";return}
+ m.textContent="Đang đăng…";let path=null;
+ if(f){path=Date.now()+".pdf";const r=await sb.storage.from("pdfs").upload(path,f,{contentType:"application/pdf"});
+  if(r.error){m.textContent="Lỗi tải PDF: "+r.error.message;return}}
+ await sb.from("assignments").update({active:false}).eq("active",true);
+ const {error}=await sb.from("assignments").insert({title,pdf_path:path,sheet,active:true});
+ m.textContent=error?"Lỗi: "+error.message:"✅ Đã đăng. Học sinh mở link là thấy phiếu mới.";loadList()};
+
+async function loadList(){const {data}=await sb.from("assignments").select("*").order("created_at",{ascending:false});
+ AS=data||[];$("#af2").innerHTML=AS.map(a=>`<option value="${a.id}">${esc(a.title)}</option>`).join("");showSub()}
+$("#af2").onchange=showSub;
+async function showSub(){const a=AS.find(x=>x.id===$("#af2").value),L=$("#al");if(!a){L.textContent="Chưa có phiếu.";return}
+ const {data}=await sb.from("submissions").select("*").eq("assignment_id",a.id).order("created_at",{ascending:false}).limit(500);
+ const rows=data||[],qs=parse(a.sheet).filter(q=>!q.h);
+ L.innerHTML=`<p>Tổng: <b>${rows.length}</b> bài</p>`+rows.map(r=>`<details><summary><b>${esc(r.name)}</b> · lớp ${esc(r.cls)} · <b>${r.score10}/10</b> · ${new Date(r.created_at).toLocaleString("vi-VN")}</summary>`+
+  r.answers.map((v,i)=>{const q=qs[i],m=q&&q.key?(ok1(q.key,v)?' <span class="c">✓</span>':` <span class="x">✗ (đúng: ${esc(q.key.split(";")[0])})</span>`):"";
+   return `<div>${esc(r.labels[i])}: <b>${esc(v)||"—"}</b>${m}</div>`}).join("")+`</details>`).join("")}
+
+sb.auth.getSession().then(({data})=>data.session?admin():load());
+</script></body></html>
